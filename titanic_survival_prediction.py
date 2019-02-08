@@ -69,12 +69,20 @@ y = titanic_data.Survived
 # Split into validation and training data
 train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
 
-rf_model = RandomForestClassifier(random_state=1)
-rf_model.fit(train_X, train_y)
-y_predicted = rf_model.predict(val_X)
+estimator_nums= [
+    10,
+    100,
+    1000,
+    10000
+]
 
-score = rf_model.score(val_X, val_y)
-print('Mean Accuracy: {}'.format(score))
+for n_estimator in estimator_nums:
+    rf_model = RandomForestClassifier(random_state=1, n_estimators=n_estimator, max_features="auto")
+    rf_model.fit(train_X, train_y)
+    y_predicted = rf_model.predict(val_X)
+
+    score = rf_model.score(val_X, val_y)
+    print('Mean Accuracy: {}'.format(score))
 
 # SUBMISSION
 '''
