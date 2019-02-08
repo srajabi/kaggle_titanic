@@ -7,31 +7,28 @@ from numpy import argmax
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 
+def GetHotSex(Sex):
+    Sex = array(Sex)
+    label_encoder = LabelEncoder()
+    integer_encoded = label_encoder.fit_transform(Sex)
+    onehot_encoder = OneHotEncoder(sparse=False)
+    integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
+    return onehot_encoder.fit_transform(integer_encoded)
+
 # TESTING AND MODEL CREATION
 titanic_file_path = './titanic/train.csv'
 
 titanic_data = pandas.read_csv(titanic_file_path)
 titanic_data = titanic_data.fillna(method='ffill')
 
-sexes = array(titanic_data['Sex'])
+HotSex = GetHotSex(titanic_data['Sex'])
 
-# integer encode
-label_encoder = LabelEncoder()
-integer_encoded = label_encoder.fit_transform(sexes)
-
-# binary encode
-onehot_encoder = OneHotEncoder(sparse=False)
-integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
-onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
-
-# todo one-hot encode Sex
 features = [
     'Age', 'Pclass', 'Sex', 'Parch', 'SibSp'
 ]
 
-
 X = titanic_data[features]
-X.Sex = onehot_encoded
+X.Sex = HotSex
 y = titanic_data.Survived
 
 # Split into validation and training data
@@ -69,3 +66,6 @@ output = pandas.DataFrame({'PassengerId' : test_data.PassengerId,
 
 output.to_csv('submission.csv', index=False)
 '''
+
+
+
