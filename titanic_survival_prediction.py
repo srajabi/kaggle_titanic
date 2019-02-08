@@ -24,7 +24,7 @@ onehot_encoded = onehot_encoder.fit_transform(integer_encoded)
 
 # todo one-hot encode Sex
 features = [
-    'Age', 'Pclass', 'Sex'
+    'Age', 'Pclass', 'Sex', 'Parch', 'SibSp'
 ]
 
 titanic_data = titanic_data.fillna(method='ffill')
@@ -40,7 +40,5 @@ rf_model = RandomForestClassifier(random_state=1)
 rf_model.fit(train_X, train_y)
 y_predicted = rf_model.predict(val_X)
 
-score = rf_model.score(train_X, train_y)
+score = rf_model.score(val_X, val_y)
 print(score)
-print(y_predicted)
-print(val_y)
