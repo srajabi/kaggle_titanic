@@ -97,7 +97,8 @@ class TitanicModel(object):
         return data_frame
 
     def test_model(self):
-        train = self.fillna_method(self.train_df)
+        train = self.train_df
+        train = self.fillna_method(train)
         train = self.drop_useless(train)
         train = self.drop_passenger_id(train)
         train = self.sex_to_categorical(train)
