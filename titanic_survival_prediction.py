@@ -7,6 +7,13 @@ from numpy import argmax
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 
+def substrings_in_string(big_string, substrings):
+    for substring in substrings:
+        if big_string.find(substring) != -1:
+            return substring
+    print big_string
+    return np.nan
+
 def GetHotSex(Sex):
     Sex = array(Sex)
     label_encoder = LabelEncoder()
@@ -19,16 +26,44 @@ def GetHotSex(Sex):
 titanic_file_path = './titanic/train.csv'
 
 titanic_data = pandas.read_csv(titanic_file_path)
+
 titanic_data = titanic_data.fillna(method='ffill')
+
+#creating a title column from name
+title_list=['Mrs', 'Mr', 'Master', 'Miss', 'Major', 'Rev',
+            'Dr', 'Ms', 'Mlle','Col', 'Capt', 'Mme', 'Countess',
+            'Don', 'Jonkheer']
+
+titanic_data['Title']=titanic_data['Name'].map(lambda x: substrings_in_string(x, title_list))
+
+#replacing all titles with mr, mrs, miss, master
+def replace_titles(x):
+    title=x['Title']
+    if title in ['Don', 'Major', 'Capt', 'Jonkheer', 'Rev', 'Col']:
+        return 'Mr'
+    elif title in ['Countess', 'Mme']:
+        return 'Mrs'
+    elif title in ['Mlle', 'Ms']:
+        return 'Miss'
+    elif title =='Dr':
+        if x['Sex']=='Male':
+            return 'Mr'
+        else:
+            return 'Mrs'
+    else:
+        return title
+titanic_data['Title']=titanic_data.apply(replace_titles, axis=1)
+HotTitle = GetHotSex(titanic_data['Title'])
 
 HotSex = GetHotSex(titanic_data['Sex'])
 
 features = [
-    'Age', 'Pclass', 'Sex', 'Parch', 'SibSp'
+    'Pclass', 'Fare', 'Sex', 'Title'
 ]
 
 X = titanic_data[features]
 X.Sex = HotSex
+X.Title = HotTitle
 y = titanic_data.Survived
 
 # Split into validation and training data
