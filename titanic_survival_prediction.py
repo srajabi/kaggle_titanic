@@ -7,9 +7,11 @@ from numpy import argmax
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 
+# TESTING AND MODEL CREATION
 titanic_file_path = './titanic/train.csv'
 
 titanic_data = pandas.read_csv(titanic_file_path)
+titanic_data = titanic_data.fillna(method='ffill')
 
 sexes = array(titanic_data['Sex'])
 
@@ -27,7 +29,6 @@ features = [
     'Age', 'Pclass', 'Sex', 'Parch', 'SibSp'
 ]
 
-titanic_data = titanic_data.fillna(method='ffill')
 
 X = titanic_data[features]
 X.Sex = onehot_encoded
@@ -42,3 +43,22 @@ y_predicted = rf_model.predict(val_X)
 
 score = rf_model.score(val_X, val_y)
 print(score)
+
+print(y_predicted)
+print(val_y)
+
+# SUBMISSION
+test_file_path = './titanic/test.csv'
+
+test_data = pandas.read_csv(test_file_path)
+test_data = test_data.fillna(method='ffill')
+
+X_submit = test_data[features]
+rf_model.fit(X, y) # use entire dataset for training
+
+test_predictions = rf_model.predict(X_submit)
+
+output = pandas.DataFrame({'PassengerId' : test_data.PassengerId,
+                           'Survived' : test_predictions})
+
+output.to_csv('submission.csv', index=False)
