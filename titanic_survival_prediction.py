@@ -1,6 +1,6 @@
 import pandas
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_absolute_error
 
 titanic_file_path = './titanic/train.csv'
@@ -21,8 +21,11 @@ y = titanic_data.Survived
 train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
 
 
-rf_model = RandomForestRegressor(random_state=1)
+rf_model = RandomForestClassifier(random_state=1)
 rf_model.fit(train_X, train_y)
 y_predicted = rf_model.predict(val_X)
-mae = mean_absolute_error(y_predicted, val_y)
-print('Validation MAE for RandomForest: {:,.0f}'.format(mae))
+
+score = rf_model.score(train_X, train_y)
+print(score)
+print(y_predicted)
+print(val_y)
