@@ -42,12 +42,10 @@ rf_model.fit(train_X, train_y)
 y_predicted = rf_model.predict(val_X)
 
 score = rf_model.score(val_X, val_y)
-print(score)
-
-print(y_predicted)
-print(val_y)
+print('Mean Accuracy: {}'.format(score))
 
 # SUBMISSION
+'''
 test_file_path = './titanic/test.csv'
 
 test_data = pandas.read_csv(test_file_path)
@@ -62,3 +60,4 @@ output = pandas.DataFrame({'PassengerId' : test_data.PassengerId,
                            'Survived' : test_predictions})
 
 output.to_csv('submission.csv', index=False)
+'''
