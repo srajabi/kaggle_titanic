@@ -2,6 +2,7 @@ import pandas
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_absolute_error
+import numpy
 from numpy import array
 from numpy import argmax
 from sklearn.preprocessing import LabelEncoder
@@ -15,6 +16,18 @@ def GetHotSex(Sex):
     integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
     return onehot_encoder.fit_transform(integer_encoded)
 
+def GetBinnedAges(Ages):
+    BinnedAges = numpy.empty_like(Ages)
+    for i in range(len(Ages)):
+        if Ages[i] < 12:
+            BinnedAges[i] = 0
+        elif Ages[i] < 60:
+            BinnedAges[i] = 2
+        else:
+            BinnedAges[i] = 3
+
+    return pandas.DataFrame(BinnedAges)
+
 # TESTING AND MODEL CREATION
 titanic_file_path = './titanic/train.csv'
 
@@ -22,13 +35,16 @@ titanic_data = pandas.read_csv(titanic_file_path)
 titanic_data = titanic_data.fillna(method='ffill')
 
 HotSex = GetHotSex(titanic_data['Sex'])
+HotParch = GetHotSex(titanic_data['Parch'])
+BinnedAge = GetBinnedAges(titanic_data['Age'])
 
 features = [
-    'Age', 'Pclass', 'Sex', 'Parch', 'SibSp'
+    'Pclass', 'Sex', 'Fare', 'Age'
 ]
 
 X = titanic_data[features]
 X.Sex = HotSex
+X.Age = BinnedAge
 y = titanic_data.Survived
 
 # Split into validation and training data
