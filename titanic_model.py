@@ -148,6 +148,7 @@ class TitanicModel(object):
             "Major": "Mr",
             "Jonkheer": "Mr",
             "Don": "Mr",
+            "Dona": "Mrs",
             "Sir": "Mr",
             "Dr": "Mr",
             "Rev": "Mr",
