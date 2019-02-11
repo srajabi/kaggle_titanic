@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
 
 class TitanicModel(object):
@@ -250,6 +250,8 @@ class TitanicModel(object):
 
         df.drop('Ticket', axis=1, inplace=True)
 
+        #print(df.columns.values)
+
         return df
 
 
@@ -266,9 +268,13 @@ class TitanicModel(object):
 
         model.fit(train_X, train_y)
         print(model.score(train_X, train_y))
+
         y_predicted = model.predict(validate_X)
         score = accuracy_score(validate_y, y_predicted)
+
         print('Mean Accuracy: {}'.format(score))
+        #print(classification_report(validate_y, y_predicted))
+        #print(confusion_matrix(validate_y, y_predicted))
 
     def submit_model(self):
         train = self.process_data(self.train_df)
@@ -284,10 +290,23 @@ class TitanicModel(object):
         model.fit(X, y)
         print(model.score(X, y))
 
+        def rf_feat_importance(m, df):
+            return pandas.DataFrame({'cols': df.columns, 'imp':
+                m.feature_importances_}).sort_values('imp', ascending=False)
+
+        feature_importance = rf_feat_importance(model, train)
+
+        to_keep = feature_importance[feature_importance.imp > 0.01].cols
+
+        X = train[to_keep]
+
+        model.fit(X, y)
+        print(model.score(X, y))
+
         #print(test.columns.values)
         #print(train.columns.values)
 
-        test_predictions = model.predict(test)
+        test_predictions = model.predict(test[to_keep])
 
         output = pandas.DataFrame({'PassengerId': test.PassengerId,
                                    'Survived': test_predictions})
@@ -297,5 +316,5 @@ class TitanicModel(object):
 
 if __name__ == "__main__":
     titanic_model = TitanicModel()
-    titanic_model.test_model()
+    #titanic_model.test_model()
     titanic_model.submit_model()
