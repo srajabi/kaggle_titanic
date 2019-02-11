@@ -13,7 +13,7 @@ def substrings_in_string(big_string, substrings):
         if big_string.find(substring) != -1:
             return substring
     print big_string
-    return np.nan
+    return numpy.nan
 
 def GetHotSex(Sex):
     Sex = array(Sex)
@@ -22,6 +22,7 @@ def GetHotSex(Sex):
     onehot_encoder = OneHotEncoder(sparse=False)
     integer_encoded = integer_encoded.reshape(len(integer_encoded), 1)
     return onehot_encoder.fit_transform(integer_encoded)
+    #return integer_encoded
 
 def GetBinnedAges(Ages):
     BinnedAges = numpy.empty_like(Ages)
@@ -77,7 +78,7 @@ features = [
     'Pclass', 
     'Sex', 
     'Fare', 
-    # 'Age', 
+    #'Age',
     'Title'
 ]
 
@@ -92,9 +93,9 @@ train_X, val_X, train_y, val_y = train_test_split(X, y, random_state=1)
 
 estimator_nums= [
     10,
-    100,
-    1000,
-    10000
+    200,
+    #1000,
+    #10000
 ]
 
 for n_estimator in estimator_nums:
