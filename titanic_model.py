@@ -580,6 +580,31 @@ class TitanicModel(object):
         #print(classification_report(validate_y, y_predicted))
         #print(confusion_matrix(validate_y, y_predicted))
 
+    def submit_nn_model(self):
+        train = self.process_data(self.train_df)
+        #train.drop('Title_Royalty', axis=1, inplace=True)
+        test = self.process_data(self.test_df)
+
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        number_of_features = len(X.columns)
+        model = self.create_nn_model(number_of_features)
+
+        model.fit(X, y, epochs=150, batch_size=150)
+
+        model.fit(X, y)
+
+        test_predictions = model.predict(test)
+
+        rounded = [int(round(x)) for x in test_predictions]
+
+        output = pandas.DataFrame({'PassengerId': test.PassengerId,
+                                   'Survived': rounded})
+
+        output.to_csv('submission.csv', index=False)
+        
     def submit_model(self):
         train = self.process_data(self.train_df)
         #train.drop('Title_Royalty', axis=1, inplace=True)
