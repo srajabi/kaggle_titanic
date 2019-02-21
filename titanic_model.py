@@ -9,6 +9,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from keras.models import Sequential
+from keras.layers import Dense
 
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier, VotingClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -28,6 +30,18 @@ class TitanicModel(object):
 
         test_file_path = './titanic/test.csv'
         self.test_df = pandas.read_csv(test_file_path)
+
+    def create_nn_model(self, number_of_features):
+        model = Sequential()
+        model.add(Dense(number_of_features, input_dim=number_of_features, activation='relu'))
+        model.add(Dense(number_of_features // 2, activation='relu'))
+        model.add(Dense(number_of_features // 8, activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
+        model.compile(
+            loss='binary_crossentropy',
+            optimizer='adam',
+            metrics=['accuracy'])
+        return model
 
     def create_model(self):
         return RandomForestClassifier(n_estimators=200,
@@ -523,7 +537,27 @@ class TitanicModel(object):
 
         result = pandas.concat([self.test_df['PassengerId'], test_survived], axis=1)
         result.to_csv('ensemble.csv', index=False)
+        
+    def test_nn_model(self):
+        train = self.process_data(self.train_df)
 
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        train_X, validate_X, train_y, validate_y = train_test_split(X, y, random_state=9)
+
+        number_of_features = len(X.columns)
+        model = self.create_nn_model(number_of_features)
+
+        model.fit(train_X, train_y, epochs=150, batch_size=150)
+
+        y_predicted = model.predict(validate_X)
+        rounded = [round(x[0]) for x in y_predicted]
+        score = accuracy_score(validate_y, rounded)
+
+        print('Mean Accuracy: {}'.format(score))
+    
     def test_model(self):
         train = self.process_data(self.train_df)
 
