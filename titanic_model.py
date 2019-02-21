@@ -4,13 +4,15 @@ from numpy import array
 import seaborn
 import matplotlib
 import matplotlib.pyplot as pyplot
-
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from keras.models import Sequential
 from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
 
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier, VotingClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -31,11 +33,12 @@ class TitanicModel(object):
         test_file_path = './titanic/test.csv'
         self.test_df = pandas.read_csv(test_file_path)
 
-    def create_nn_model(self, number_of_features):
+    @staticmethod
+    def create_nn_model():
+        number_of_features = 23
         model = Sequential()
         model.add(Dense(number_of_features, input_dim=number_of_features, activation='relu'))
         model.add(Dense(number_of_features // 2, activation='relu'))
-        model.add(Dense(number_of_features // 8, activation='relu'))
         model.add(Dense(1, activation='sigmoid'))
         model.compile(
             loss='binary_crossentropy',
@@ -539,24 +542,20 @@ class TitanicModel(object):
         result.to_csv('ensemble.csv', index=False)
         
     def test_nn_model(self):
-        train = self.process_data(self.train_df)
+        seed = 7
+        numpy.random.seed(seed)
 
+        train = self.process_data(self.train_df)
         y = train['Survived']
         train.drop('Survived', axis=1, inplace=True)
+        train.drop('PassengerId', axis=1, inplace=True)
         X = train
 
-        train_X, validate_X, train_y, validate_y = train_test_split(X, y, random_state=9)
-
-        number_of_features = len(X.columns)
-        model = self.create_nn_model(number_of_features)
-
-        model.fit(train_X, train_y, epochs=150, batch_size=150)
-
-        y_predicted = model.predict(validate_X)
-        rounded = [round(x[0]) for x in y_predicted]
-        score = accuracy_score(validate_y, rounded)
-
-        print('Mean Accuracy: {}'.format(score))
+        neural_network = KerasClassifier(build_fn=self.create_nn_model, epochs=150, batch_size=150, verbose=0)
+        kfold = StratifiedKFold(n_splits=10)
+        scores = cross_val_score(neural_network, X, y, scoring = "accuracy", cv = kfold, n_jobs=4)
+        print("%.2f%% (std %.2f)" % (numpy.mean(scores), numpy.std(scores)))
+        
     
     def test_model(self):
         train = self.process_data(self.train_df)
@@ -589,8 +588,7 @@ class TitanicModel(object):
         train.drop('Survived', axis=1, inplace=True)
         X = train
 
-        number_of_features = len(X.columns)
-        model = self.create_nn_model(number_of_features)
+        model = self.create_nn_model()
 
         model.fit(X, y, epochs=150, batch_size=150)
 
@@ -653,4 +651,4 @@ if __name__ == "__main__":
     #titanic_model.create_ensemble()
     #titanic_model.test_classifiers()
     #titanic_model.test_model()
-    titanic_model.submit_model()
+    titanic_model.test_model()
