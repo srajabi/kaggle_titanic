@@ -1,11 +1,23 @@
 import pandas
 import numpy
 from numpy import array
+import seaborn
+import matplotlib
+import matplotlib.pyplot as pyplot
+
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier, ExtraTreesClassifier, VotingClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
+from sklearn.model_selection import GridSearchCV, cross_val_score, StratifiedKFold, learning_curve
 
 
 class TitanicModel(object):
@@ -21,7 +33,8 @@ class TitanicModel(object):
         return RandomForestClassifier(n_estimators=200,
                                       min_samples_leaf=3,
                                       max_features=0.5,
-                                      n_jobs=-1)
+                                      n_jobs=-1,
+                                      random_state=76)
 
     def fillna_method(self, data_frame):
         return data_frame.fillna(method='ffill')
@@ -104,7 +117,8 @@ class TitanicModel(object):
     def create_family_size(self, data_frame):
         data_frame['FamilySize'] = data_frame['Parch'] + data_frame['SibSp'] + 1
         data_frame['Singleton'] = data_frame['FamilySize'].map(lambda s: 1 if s == 1 else 0)
-        data_frame['SmallFamily'] = data_frame['FamilySize'].map(lambda s: 1 if 2 <= s <= 4 else 0)
+        data_frame['SmallFamily'] = data_frame['FamilySize'].map(lambda s: 1 if s == 2 else 0)
+        data_frame['MediumFamily'] = data_frame['FamilySize'].map(lambda s: 1 if 3 <= s <= 4 else 0)
         data_frame['LargeFamily'] = data_frame['FamilySize'].map(lambda s: 1 if 5 <= s else 0)
 
         data_frame.drop('Parch', axis=1, inplace=True)
@@ -226,6 +240,8 @@ class TitanicModel(object):
 
         data_frame['Fare'] = data_frame.apply(lambda row: self.fill_fare(row, grouped_median_train) if numpy.isnan(row['Fare']) else row['Fare'], axis=1)
 
+        data_frame["Fare"] = data_frame["Fare"].map(lambda i: numpy.log(i) if i > 0 else 0)
+
         return data_frame
 
     def process_data(self, df):
@@ -249,11 +265,264 @@ class TitanicModel(object):
         df = self.process_names(df)
 
         df.drop('Ticket', axis=1, inplace=True)
+        #df.drop('PassengerId', axis=1, inplace=True)
 
         #print(df.columns.values)
 
         return df
 
+    def create_classifiers(self):
+        random_state = 2
+        classifiers = []
+        classifiers.append(SVC(random_state=random_state))
+        classifiers.append(DecisionTreeClassifier(random_state=random_state))
+        classifiers.append(
+            AdaBoostClassifier(DecisionTreeClassifier(random_state=random_state), random_state=random_state,
+                               learning_rate=0.1))
+        classifiers.append(RandomForestClassifier(random_state=random_state))
+        classifiers.append(ExtraTreesClassifier(random_state=random_state))
+        classifiers.append(GradientBoostingClassifier(random_state=random_state))
+        classifiers.append(MLPClassifier(random_state=random_state))
+        classifiers.append(KNeighborsClassifier())
+        classifiers.append(LogisticRegression(random_state=random_state))
+        classifiers.append(LinearDiscriminantAnalysis())
+
+        return classifiers
+
+    def test_classifiers(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        classifiers = self.create_classifiers()
+
+        kfold = StratifiedKFold(n_splits=10)
+        cv_results = []
+        for classifier in classifiers:
+            cv_results.append(cross_val_score(classifier, X, y=y, scoring="accuracy", cv=kfold, n_jobs=4))
+
+        cv_means = []
+        cv_std = []
+        for cv_result in cv_results:
+            cv_means.append(cv_result.mean())
+            cv_std.append(cv_result.std())
+
+        cv_res = pandas.DataFrame(
+            {"CrossValMeans": cv_means, "CrossValerrors": cv_std, "Algorithm": ["SVC", "DecisionTree", "AdaBoost",
+                                                                                "RandomForest", "ExtraTrees",
+                                                                                "GradientBoosting",
+                                                                                "MultipleLayerPerceptron",
+                                                                                "KNeighboors", "LogisticRegression",
+                                                                                "LinearDiscriminantAnalysis"]})
+
+        g = seaborn.barplot("CrossValMeans", "Algorithm", data=cv_res, palette="Set3", orient="h", **{'xerr': cv_std})
+        g.set_xlabel("Mean Accuracy")
+        g = g.set_title("Cross validation scores")
+
+        pyplot.savefig('testfigure.png', bbox_inches='tight')
+
+    def hp_tune_ada(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        ### META MODELING  WITH ADABOOST, RF, EXTRATREES and GRADIENTBOOSTING
+
+        # Adaboost
+        DTC = DecisionTreeClassifier()
+
+        adaDTC = AdaBoostClassifier(DTC, random_state=4)
+
+        ada_param_grid = {"base_estimator__criterion": ["gini", "entropy"],
+                          "base_estimator__splitter": ["best", "random"],
+                          "algorithm": ["SAMME", "SAMME.R"],
+                          "n_estimators": [1, 2],
+                          "learning_rate": [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 1.5]}
+
+        gsadaDTC = GridSearchCV(adaDTC, param_grid=ada_param_grid, cv=kfold, scoring="accuracy", n_jobs=4, verbose=1)
+
+        gsadaDTC.fit(X, y)
+
+        ada_best = gsadaDTC.best_estimator_
+        print(ada_best)
+        print(gsadaDTC.best_score_)
+
+    def hp_tune_xtra(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        # ExtraTrees
+        ExtC = ExtraTreesClassifier()
+
+        ## Search grid for optimal parameters
+        ex_param_grid = {"max_depth": [None],
+                         "max_features": [1, 3, 10],
+                         "min_samples_split": [2, 3, 10],
+                         "min_samples_leaf": [1, 3, 10],
+                         "bootstrap": [False],
+                         "n_estimators": [100, 300],
+                         "criterion": ["gini"]}
+
+        gsExtC = GridSearchCV(ExtC, param_grid=ex_param_grid, cv=kfold, scoring="accuracy", n_jobs=4, verbose=1)
+
+        gsExtC.fit(X, y)
+
+        ExtC_best = gsExtC.best_estimator_
+
+        # Best score
+        gsExtC.best_score_
+
+        print(ExtC_best)
+        print(gsExtC.best_score_)
+
+
+    def hp_tune_rf(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        # RFC Parameters tunning
+        RFC = RandomForestClassifier()
+
+        ## Search grid for optimal parameters
+        rf_param_grid = {"max_depth": [None],
+                         "max_features": [1, 3, 10],
+                         "min_samples_split": [2, 3, 10],
+                         "min_samples_leaf": [1, 3, 10],
+                         "bootstrap": [False],
+                         "n_estimators": [100, 300],
+                         "criterion": ["gini"]}
+
+        gsRFC = GridSearchCV(RFC, param_grid=rf_param_grid, cv=kfold, scoring="accuracy", n_jobs=4, verbose=1)
+
+        gsRFC.fit(X, y)
+
+        RFC_best = gsRFC.best_estimator_
+
+        # Best score
+        gsRFC.best_score_
+
+        print(RFC_best)
+        print(gsRFC.best_score_)
+
+    def hp_tune_gb(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        # Gradient boosting tunning
+
+        GBC = GradientBoostingClassifier()
+        gb_param_grid = {'loss': ["deviance"],
+                         'n_estimators': [100, 200, 300],
+                         'learning_rate': [0.1, 0.05, 0.01],
+                         'max_depth': [4, 8],
+                         'min_samples_leaf': [100, 150],
+                         'max_features': [0.3, 0.1]
+                         }
+
+        gsGBC = GridSearchCV(GBC, param_grid=gb_param_grid, cv=kfold, scoring="accuracy", n_jobs=4, verbose=1)
+
+        gsGBC.fit(X, y)
+
+        GBC_best = gsGBC.best_estimator_
+
+        # Best score
+        gsGBC.best_score_
+
+        print(GBC_best)
+        print(gsGBC.best_score_)
+
+    def hp_tune_svc(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        ### SVC classifier
+        SVMC = SVC(probability=True)
+        svc_param_grid = {'kernel': ['rbf'],
+                          'gamma': [0.001, 0.01, 0.1, 1],
+                          'C': [1, 10, 50, 100, 200, 300, 1000]}
+
+        gsSVMC = GridSearchCV(SVMC, param_grid=svc_param_grid, cv=kfold, scoring="accuracy", n_jobs=4, verbose=1)
+
+        gsSVMC.fit(X, y)
+
+        SVMC_best = gsSVMC.best_estimator_
+
+        # Best score
+        gsSVMC.best_score_
+
+        print(SVMC_best)
+        print(gsSVMC.best_score_)
+
+    def hp_tune_lda(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        X = train
+
+        kfold = StratifiedKFold(n_splits=10)
+
+        lda = LinearDiscriminantAnalysis()
+        param_grid = {'store_covariance': [True, False],
+                      'tol': [0.00001, 0.0001, 0.001, 0.01, 0.1]}
+
+        gsLDA = GridSearchCV(lda, param_grid=param_grid, cv=kfold, scoring='accuracy', n_jobs=4, verbose=1)
+
+        gsLDA.fit(X, y)
+
+        best = gsLDA.best_estimator_
+        best_score = gsLDA.best_score_
+
+        print(best)
+        print(best_score)
+
+    def create_ensemble(self):
+        train = self.process_data(self.train_df)
+        y = train['Survived']
+        train.drop('Survived', axis=1, inplace=True)
+        train.drop('PassengerId', axis=1, inplace=True)
+        X = train
+
+        dtc = DecisionTreeClassifier(criterion='gini', splitter='random')
+        ada = AdaBoostClassifier(dtc, algorithm='SAMME', learning_rate=0.0001, n_estimators=1, random_state=4)
+
+        xtra = ExtraTreesClassifier(max_depth=None, max_features=10, min_samples_split=2, min_samples_leaf=10, bootstrap=False, n_estimators=300, criterion='gini')
+
+        rfc = RandomForestClassifier(max_depth=None, max_features=3, min_samples_split=10, min_samples_leaf=3, bootstrap=False, n_estimators=300, criterion='gini')
+
+        gb = GradientBoostingClassifier(loss='deviance', n_estimators=200, learning_rate=0.05, max_depth=4, min_samples_leaf=100, max_features=0.3)
+
+        lda = LinearDiscriminantAnalysis(store_covariance=True, tol=0.000001)
+
+        votingC = VotingClassifier(estimators=[('Ada', ada), ('Xtra', xtra), ('RFC', rfc), ('GB', gb), ('LDA', lda)], voting='soft', n_jobs=4)
+
+        votingC = votingC.fit(X, y)
+
+        test = self.process_data(self.test_df)
+        test.drop('PassengerId', axis=1, inplace=True)
+        test_survived = pandas.Series(votingC.predict(test), name='Survived')
+
+        result = pandas.concat([self.test_df['PassengerId'], test_survived], axis=1)
+        result.to_csv('ensemble.csv', index=False)
 
     def test_model(self):
         train = self.process_data(self.train_df)
@@ -273,6 +542,7 @@ class TitanicModel(object):
         score = accuracy_score(validate_y, y_predicted)
 
         print('Mean Accuracy: {}'.format(score))
+
         #print(classification_report(validate_y, y_predicted))
         #print(confusion_matrix(validate_y, y_predicted))
 
@@ -280,11 +550,13 @@ class TitanicModel(object):
         train = self.process_data(self.train_df)
         #train.drop('Title_Royalty', axis=1, inplace=True)
         test = self.process_data(self.test_df)
+        test.drop('PassengerId', axis=1, inplace=True)
 
         model = self.create_model()
 
         y = train['Survived']
         train.drop('Survived', axis=1, inplace=True)
+        train.drop('PassengerId', axis=1, inplace=True)
         X = train
 
         model.fit(X, y)
@@ -301,6 +573,9 @@ class TitanicModel(object):
         X = train[to_keep]
 
         model.fit(X, y)
+
+        scores = cross_val_score(model, X, y)
+        print(scores)
         print(model.score(X, y))
 
         #print(test.columns.values)
@@ -308,7 +583,7 @@ class TitanicModel(object):
 
         test_predictions = model.predict(test[to_keep])
 
-        output = pandas.DataFrame({'PassengerId': test.PassengerId,
+        output = pandas.DataFrame({'PassengerId': self.test_df.PassengerId,
                                    'Survived': test_predictions})
 
         output.to_csv('submission.csv', index=False)
@@ -316,5 +591,7 @@ class TitanicModel(object):
 
 if __name__ == "__main__":
     titanic_model = TitanicModel()
+    #titanic_model.create_ensemble()
+    #titanic_model.test_classifiers()
     #titanic_model.test_model()
     titanic_model.submit_model()
